@@ -6,19 +6,91 @@ import argparse
 import logging
 import sys
 
-from tattrdb import __version__
+import tattrdb
 
 
-def host_command(args):
-    print args
+def print_host(host):
+    print host["hostname"]
+    print "-" * 40
+    print "%-15s %s" % ("id:", host["id"])
+    print "%-15s %s" % ("tags:", ", ".join(host["tags"]))
+    print "attributes:"
+    for key, value in host["attributes"].iteritems():
+        print "  %-15s %s" % (key+":", value)
 
-def tag_command(args):
-    print args
 
-def attr_command(args):
-    print args
+def host_command(tattr, args):
+    if args.subcommand == "add":
+        tattr.hosts.add(args.hostname)
+        logging.info("New host (%s) added.", args.hostname)
+    elif args.subcommand == "rm":
+        tattr.hosts.rm(args.hostname)
+        logging.info("Host (%s) removed.", args.hostname)
+    elif args.subcommand == "rename":
+        tattr.hosts.rename(args.old_hostname, args.new_hostname)
+        logging.info("Host (%s) renamed to %s.", args.old_hostname, args.new_hostname)
+    elif args.subcommand == "get":
+        host = tattr.hosts.get(args.hostname)
+        print_host(host)
+    elif args.subcommand == "list":
+        for host in tattr.hosts:
+            if args.details:
+                print_host(host)
+                print
+            else:
+                print host["hostname"]
+    elif args.subcommand == "set":
+        if args.type == "tag":
+            for name in args.names:
+                tattr.hosts.set_tag(args.hostname, name)
+                print "Tag (%s) set on %s." % (name, args.hostname)
+        elif args.type == "attr":
+            for name in args.names:
+                if "=" not in name:
+                    raise tattrdb.Error("Name must be of the form <attr>=<value>")
+                key, val = name.split("=")
+                tattr.hosts.set_attribute(args.hostname, key, val)
+                print "Attribute (%s) set on %s." % (name, args.hostname)
+    elif args.subcommand == "unset":
+        if args.type == "tag":
+            for name in args.names:
+                tattr.hosts.unset_tag(args.hostname, name)
+                print "Tag (%s) removed from %s." % (name, args.hostname)
+        elif args.type == "attr":
+            for name in args.names:
+                tattr.hosts.unset_attribute(args.hostname, name)
+                print "Attribute (%s) removed from %s." % (name, args.hostname)
 
-def query_command(args):
+
+def tag_command(tattr, args):
+    if args.subcommand == "add":
+        tattr.tags.add(args.tag)
+        logging.info("New tag (%s) added.", args.tag)
+    elif args.subcommand == "rm":
+        tattr.tags.rm(args.tag, force=args.force)
+        logging.info("Host (%s) removed.", args.tag)
+    elif args.subcommand == "list":
+        for tag in tattr.tags:
+            print tag["tagname"]
+
+
+def attr_command(tattr, args):
+    if args.subcommand == "add":
+        tattr.attrs.add(args.attribute)
+        logging.info("New attribute (%s) added.", args.attribute)
+    elif args.subcommand == "rm":
+        tattr.attrs.rm(args.attribute, force=args.force)
+        logging.info("Host (%s) removed.", args.attribute)
+    elif args.subcommand == "list":
+        for attribute in tattr.attrs:
+            print attribute["attrname"]
+    elif args.subcommand == "get":
+        host = tattr.hosts.get(args.hostname)
+        if args.attribute not in host["attributes"]:
+            raise tattrdb.Error("No such attribute (%s) on host (%s)" % (args.attribute, args.hostname))
+        print host["attributes"][args.attribute]
+
+def query_command(tattr, args):
     print args
 
 def main():
@@ -37,17 +109,17 @@ def main():
     host_subparser = host_parser.add_subparsers(dest="subcommand")
 
     host_add_parser = host_subparser.add_parser("add", help="Add a new host.")
-    host_add_parser.add_argument("hostname", nargs=1)
+    host_add_parser.add_argument("hostname")
 
     host_rm_parser = host_subparser.add_parser("rm", help="Remove a host.")
-    host_rm_parser.add_argument("hostname", nargs=1)
+    host_rm_parser.add_argument("hostname")
 
     host_rename_parser = host_subparser.add_parser("rename", help="Rename a host.")
-    host_rename_parser.add_argument("old_hostname", nargs=1)
-    host_rename_parser.add_argument("new_hostname", nargs=1)
+    host_rename_parser.add_argument("old_hostname")
+    host_rename_parser.add_argument("new_hostname")
 
     host_get_parser = host_subparser.add_parser("get", help="Get tags/attrs for a host.")
-    host_get_parser.add_argument("hostname", nargs=1)
+    host_get_parser.add_argument("hostname")
 
     host_list_parser = host_subparser.add_parser("list", help="List all hosts.")
     host_list_parser.add_argument("--tag", help="Only list hosts with this tag.")
@@ -55,14 +127,14 @@ def main():
     host_list_parser.add_argument("--details", action="store_true", help="List all tags and attributes with hosts.")
 
     host_set_parser = host_subparser.add_parser("set", help="Set tags/attrs on a host.")
-    host_set_parser.add_argument("hostname", nargs=1)
-    host_set_parser.add_argument("type", choices=["tag", "attr"], nargs=1)
-    host_set_parser.add_argument("tag", nargs="+")
+    host_set_parser.add_argument("hostname")
+    host_set_parser.add_argument("type", choices=["tag", "attr"])
+    host_set_parser.add_argument("names", nargs="+")
 
     host_unset_parser = host_subparser.add_parser("unset", help="Unset tags/attrs from a host.")
-    host_unset_parser.add_argument("hostname", nargs=1)
-    host_unset_parser.add_argument("type", choices=["tag", "attr"], nargs=1)
-    host_unset_parser.add_argument("tag", nargs="+")
+    host_unset_parser.add_argument("hostname")
+    host_unset_parser.add_argument("type", choices=["tag", "attr"])
+    host_unset_parser.add_argument("names", nargs="+")
 
     # Tag SubCommands
     tag_parser = subparsers.add_parser("tag", help="Commands for listing and modifying tags.")
@@ -70,10 +142,10 @@ def main():
     tag_subparser = tag_parser.add_subparsers(dest="subcommand")
 
     tag_add_parser = tag_subparser.add_parser("add", help="Add a new tag.")
-    tag_add_parser.add_argument("tag", nargs=1)
+    tag_add_parser.add_argument("tag")
 
     tag_rm_parser = tag_subparser.add_parser("rm", help="Remove a tag.")
-    tag_rm_parser.add_argument("tag", nargs=1)
+    tag_rm_parser.add_argument("tag")
     tag_rm_parser.add_argument("--force", action="store_true", help="Remove tag from all hosts and remove.")
 
     tag_list_parser = tag_subparser.add_parser("list", help="List all tags.")
@@ -84,17 +156,17 @@ def main():
     attr_subparser = attr_parser.add_subparsers(dest="subcommand")
 
     attr_add_parser = attr_subparser.add_parser("add", help="Add a new attribute.")
-    attr_add_parser.add_argument("attribute", nargs=1)
+    attr_add_parser.add_argument("attribute")
 
     attr_rm_parser = attr_subparser.add_parser("rm", help="Remove a attribute.")
-    attr_rm_parser.add_argument("attribute", nargs=1)
+    attr_rm_parser.add_argument("attribute")
     attr_rm_parser.add_argument("--force", action="store_true", help="Remove attr from all hosts and remove.")
 
     attr_list_parser = attr_subparser.add_parser("list", help="List all attributes.")
 
     attr_get_parser = attr_subparser.add_parser("get", help="Get an attribute value from a host.")
-    attr_get_parser.add_argument("hostname", nargs=1)
-    attr_get_parser.add_argument("attribute", nargs=1)
+    attr_get_parser.add_argument("hostname")
+    attr_get_parser.add_argument("attribute")
 
     # Misc. SubCommands
     query_parser = subparsers.add_parser("query", help="Query for hosts using set syntax.")
@@ -103,11 +175,16 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print "TattrDB Version: %s" % __version__
+        print "TattrDB Version: %s" % tattrdb__version__
         sys.exit()
 
-    args.func(args)
+    try:
+        tattr = tattrdb.Tattr("sqlite:///ttt.sqlite")
+        args.func(tattr, args)
+    except tattrdb.Error, err:
+        print err
+        sys.exit(1)
 
 if __name__ == "__main__":
-    logging.basicConfig()
+    logging.basicConfig(level=logging.INFO)
     main()
