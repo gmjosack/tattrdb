@@ -132,20 +132,49 @@ class Hosts(Collection):
             host = self.db.query(self.model).filter_by(hostname=hostname).one()
         except NoResultFound:
             raise TattrException("Hostname (%s) doesn't exist." % hostname)
+
         try:
             attr = self.db.query(models.Attribute).filter_by(attrname=attrname).one()
         except NoResultFound:
             raise TattrException("Attribute (%s) doesn't exist." % attrname)
+
+        try:
+            assoc = (self.db.query(models.HostAttributes)
+                .filter_by(host_id=host.id)
+                .filter_by(attribute_id=attr.id)
+                .one()
+            )
+        except NoResultFound:
+            assoc = models.HostAttributes(host_id=host.id, attribute_id=attr.id)
+
+        assoc.value = value
+        host.attributes.append(assoc)
+        self.db.commit()
+
 
     def unset_attribute(self, hostname, attrname):
         try:
             host = self.db.query(self.model).filter_by(hostname=hostname).one()
         except NoResultFound:
             raise TattrException("Hostname (%s) doesn't exist." % hostname)
+
         try:
             attr = self.db.query(models.Attribute).filter_by(attrname=attrname).one()
         except NoResultFound:
             raise TattrException("Attribute (%s) doesn't exist." % attrname)
+
+        try:
+            assoc = (self.db.query(models.HostAttributes)
+                .filter_by(host_id=host.id)
+                .filter_by(attribute_id=attr.id)
+            ).one()
+        except NoResultFound:
+            return
+
+        host.attributes.remove(assoc)
+        self.db.delete(assoc)
+        self.db.commit()
+
 
     def filter(self, property_type, name, value):
         self._filters.add((property_type, name, value))
