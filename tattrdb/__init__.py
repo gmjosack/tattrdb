@@ -50,7 +50,6 @@ class Collection(object):
             yield entity.as_dict()
 
 
-
 class Hosts(Collection):
     model = models.Host
 
@@ -178,6 +177,27 @@ class Hosts(Collection):
     def filter(self, property_type, name, value):
         self._filters.add((property_type, name, value))
         return self
+
+    def filter_tag(self, tag):
+        return self.filter("tag", tag, None)
+
+    def filter_attr(self, attr, value=None):
+        return self.filter("attr", attr, value)
+
+    def __iter__(self):
+        query = self.db.query(self.model)
+
+        for prop_type, name, value in self._filters:
+            if prop_type == "tag":
+                query = query.filter(models.Host.tags.any(tagname=name))
+            elif prop_type == "attr":
+                query = query.filter(models.Host.real_attributes.any(attrname=name))
+                print name
+                if value:
+                    query = query.filter(models.Host.attributes.any(value=value))
+
+        for entity in query:
+            yield entity.as_dict()
 
 
 class Tags(Collection):

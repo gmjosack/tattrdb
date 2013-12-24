@@ -33,6 +33,18 @@ def host_command(tattr, args):
         host = tattr.hosts.get(args.hostname)
         print_host(host)
     elif args.subcommand == "list":
+        hosts = tattr.hosts
+
+        if args.tag:
+            hosts = hosts.filter_tag(args.tag)
+
+        if args.attr:
+            if "=" in args.attr:
+                key, val = args.attr.split("=")
+                hosts = hosts.filter_attr(key, val)
+            else:
+                hosts = hosts.filter_attr(args.attr)
+
         for host in tattr.hosts:
             if args.details:
                 print_host(host)

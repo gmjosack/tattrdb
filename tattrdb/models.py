@@ -58,7 +58,7 @@ class Attribute(Model):
     id = Column(Integer(), primary_key=True, nullable=False)
     attrname = Column(String(length=255), unique=True)
 
-    hosts = relationship("Host", secondary="host_attributes", lazy="joined")
+    hosts = relationship("Host", secondary="host_attributes", lazy="joined", backref="real_attributes")
 
     def as_dict(self):
         values = {}
