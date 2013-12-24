@@ -85,7 +85,6 @@ def main():
 
     attr_add_parser = attr_subparser.add_parser("add", help="Add a new attribute.")
     attr_add_parser.add_argument("attribute", nargs=1)
-    attr_add_parser.add_argument("--type", choices=["str", "int"], default="str")
 
     attr_rm_parser = attr_subparser.add_parser("rm", help="Remove a attribute.")
     attr_rm_parser.add_argument("attribute", nargs=1)

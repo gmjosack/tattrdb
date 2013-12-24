@@ -1,4 +1,5 @@
 MANIFEST
+*.sqlite
 *.py[cod]
 
 # C extensions
