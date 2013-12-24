@@ -36,7 +36,6 @@ class Collection(object):
     model = None
 
     def __init__(self):
-
         if self.model is None:
             raise TattrException("Collection class is abstract only.")
 
@@ -44,11 +43,11 @@ class Collection(object):
 
 
     def list(self):
-        return list(self.db.query(self.model))
+        return list(self)
 
     def __iter__(self):
-        for entity in self.list():
-            yield entity
+        for entity in self.db.query(self.model):
+            yield entity.as_dict()
 
 
 
@@ -183,6 +182,7 @@ class Hosts(Collection):
 
 class Tags(Collection):
     model = models.Tag
+
     def add(self, name):
         try:
             self.db.add(self.model(tagname=name))
@@ -222,4 +222,3 @@ class Attributes(Collection):
             raise TattrException("Tried to remove attribute in use by %s hosts without force." % len(attr.hosts))
         self.db.delete(attr)
         self.db.commit()
-

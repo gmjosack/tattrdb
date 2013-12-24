@@ -33,6 +33,13 @@ class Tag(Model):
     id = Column(Integer(), primary_key=True, nullable=False)
     tagname = Column(String(length=255), unique=True)
 
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "tagname": self.tagname,
+            "hosts": [host.hostname for host in self.hosts],
+        }
+
 
 class HostAttributes(Model):
     __tablename__ = "host_attributes"
@@ -51,6 +58,20 @@ class Attribute(Model):
     id = Column(Integer(), primary_key=True, nullable=False)
     attrname = Column(String(length=255), unique=True)
 
+    def as_dict(self):
+        values = {}
+
+        for host_assoc in self.host_assocs:
+            if host_assoc.value not in values:
+                values[host_assoc.value] = []
+            values[host_assoc.value].append(host_assoc.host.hostname)
+
+        return {
+            "id": self.id,
+            "attrname": self.attrname,
+            "values": values,
+        }
+
 
 class Host(Model):
     __tablename__ = 'hosts'
@@ -60,7 +81,7 @@ class Host(Model):
 
     tags = relationship(
         "Tag", secondary=host_tags, lazy="joined", backref="hosts")
-    attributes = relationship("HostAttributes", lazy="joined", backref="hosts")
+    attributes = relationship("HostAttributes", lazy="joined", backref="host")
 
     def as_dict(self):
         return {
