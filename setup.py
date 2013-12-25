@@ -11,7 +11,7 @@ kwargs = {
     "name": "tattrdb",
     "version": str(__version__),
     "packages": ["tattrdb"],
-    "scripts": ["bin/tattrdb", "bin/tattr"],
+    "scripts": ["bin/tattr"],
     "description": "Tag and Attribute Database.",
     # PyPi, despite not parsing markdown, will prefer the README.md to the
     # standard README. Explicitly read it here.
