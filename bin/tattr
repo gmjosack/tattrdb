@@ -5,8 +5,23 @@
 import argparse
 import logging
 import sys
+import yaml
 
 import tattrdb
+
+
+class Config(object):
+    def __init__(self):
+        self.db_uri = None
+        self.update_from_config()
+
+    def update_from_config(self):
+        with open("/etc/tattr.yaml") as config_file:
+            data = yaml.safe_load(config_file)
+            if not isinstance(data, dict):
+                data = {}
+
+        self.db_uri = data.get("db_uri", self.db_uri)
 
 
 def print_host(host):
@@ -195,8 +210,16 @@ def main():
         print "TattrDB Version: %s" % tattrdb__version__
         sys.exit()
 
+    config = Config()
+
+    if not config.db_uri:
+        print "Tattr requires a configuration file at /etc/tattr.yaml which"
+        print "specifies a db_uri to connect to."
+        print "e.g. db_uri: 'sqlite:///tattrdb.sqlite'"
+        sys.exit(1)
+
     try:
-        tattr = tattrdb.Tattr("sqlite:///ttt.sqlite")
+        tattr = tattrdb.Tattr(config.db_uri)
         args.func(tattr, args)
     except tattrdb.Error, err:
         print err
