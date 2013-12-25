@@ -1,4 +1,6 @@
 
+import inspect
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -20,14 +22,41 @@ class Tattr(object):
     def __init__(self, uri):
         self.db = connect(uri)
 
-        self.hosts = self.add_collection(Hosts)
-        self.attrs = self.add_collection(Attributes)
-        self.tags = self.add_collection(Tags)
+        self.hosts = Hosts
+        self.attrs = Attributes
+        self.tags = Tags
 
-    def add_collection(self, collection):
-        inst = collection()
-        inst.db = self.db
-        return inst
+    def __getattribute__(self, name):
+        attr = object.__getattribute__(self, name)
+        if inspect.isclass(attr) and issubclass(attr, Collection):
+            inst = attr()
+            inst.db = self.db
+            return inst
+        return attr
+
+    def query(self, args):
+
+        def ghn(hosts):
+            """ Get Hostname. """
+            return set(host["hostname"] for host in hosts)
+
+        if not args:
+            return ghn(self.hosts)
+
+        if args[0][0] in "-+":
+            hosts = ghn(self.hosts)
+        else:
+            hosts = ghn(self.hosts.filter_tag(args.pop(0)))
+
+        for tag in args:
+            if tag.startswith("+"):
+                hosts.update(ghn(self.hosts.filter_tag(tag[1:])))
+            elif tag.startswith("-"):
+                hosts.difference_update(ghn(self.hosts.filter_tag(tag[1:])))
+            else:
+                hosts.intersection_update(ghn(self.hosts.filter_tag(tag)))
+
+        return hosts
 
 
 class Collection(object):
@@ -92,9 +121,6 @@ class Hosts(Collection):
         except NoResultFound:
             raise Error("Hostname (%s) doesn't exist." % name)
         return host.as_dict()
-
-    def query(self, query):
-        pass
 
     def set_tag(self, hostname, tagname):
         try:
@@ -192,7 +218,6 @@ class Hosts(Collection):
                 query = query.filter(models.Host.tags.any(tagname=name))
             elif prop_type == "attr":
                 query = query.filter(models.Host.real_attributes.any(attrname=name))
-                print name
                 if value:
                     query = query.filter(models.Host.attributes.any(value=value))
 

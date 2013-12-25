@@ -102,8 +102,12 @@ def attr_command(tattr, args):
             raise tattrdb.Error("No such attribute (%s) on host (%s)" % (args.attribute, args.hostname))
         print host["attributes"][args.attribute]
 
+
 def query_command(tattr, args):
-    print args
+    print args.args
+    for hostname in tattr.query(args.args or []):
+        print hostname
+
 
 def main():
 
@@ -183,6 +187,7 @@ def main():
     # Misc. SubCommands
     query_parser = subparsers.add_parser("query", help="Query for hosts using set syntax.")
     query_parser.set_defaults(func=query_command)
+    query_parser.add_argument("args", nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
 
